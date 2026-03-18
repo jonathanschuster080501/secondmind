@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6c63ff" />
+  <meta name="description" content="SecondMind – dein digitales Zweitgehirn" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+  <title>SecondMind</title>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <h1>SecondMind</h1>
+    <button id="btn-new" aria-label="Neuen Eintrag erstellen">+ Neu</button>
+  </header>
+
+  <!-- FILTER BAR -->
+  <nav class="filter-bar" aria-label="Kategoriefilter">
+    <button class="filter-btn active" data-filter="all">Alle</button>
+    <button class="filter-btn" data-filter="idee">Idee</button>
+    <button class="filter-btn" data-filter="todo">To-Do</button>
+    <button class="filter-btn" data-filter="gedanke">Gedanke</button>
+    <button class="filter-btn" data-filter="gefühl">Gefühl</button>
+    <button class="filter-btn" data-filter="tagebuch">Tagebuch</button>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <main id="dashboard" aria-label="Eintrags-Dashboard">
+    <p class="empty-state" id="empty-msg">Noch keine Einträge. Leg los!</p>
+  </main>
+
+  <!-- MODAL: Eintrag erstellen / bearbeiten -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-content">
+      <h2 id="modal-title">Neuer Eintrag</h2>
+
+      <label for="entry-category">Kategorie</label>
+      <select id="entry-category">
+        <option value="idee">Idee</option>
+        <option value="todo">To-Do</option>
+        <option value="gedanke">Gedanke</option>
+        <option value="gefühl">Gefühl</option>
+        <option value="tagebuch">Tagebuch</option>
+      </select>
+
+      <label for="entry-text">Inhalt</label>
+      <textarea id="entry-text" rows="5" placeholder="Was geht dir durch den Kopf?"></textarea>
+
+      <label for="entry-reminder">Erinnerung (optional)</label>
+      <input type="datetime-local" id="entry-reminder" />
+
+      <div class="modal-actions">
+        <button id="btn-save" class="btn-primary">Speichern</button>
+        <button id="btn-cancel" class="btn-secondary">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast hidden" role="alert" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

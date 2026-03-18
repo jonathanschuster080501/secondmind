@@ -1,0 +1,19 @@
+# Betriebssystem
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Logs
+*.log
+
+# Env-Dateien (keine Secrets committen)
+.env
+.env.local
+
+# Claude Code lokale Einstellungen
+.claude/settings.local.json
