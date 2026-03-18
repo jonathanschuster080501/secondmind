@@ -188,29 +188,107 @@ function deleteEntry(id) {
 }
 
 // ============================================================
-// ERINNERUNGEN (Web Notifications API)
+// IOS & STANDALONE DETECTION
 // ============================================================
-async function requestNotificationPermission() {
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+// standalone = true wenn als installierte PWA geöffnet (Home Screen)
+const isStandalone =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
+// ============================================================
+// ERINNERUNGEN – Banner-UI & Permission-Flow
+// ============================================================
+const notifBanner      = document.getElementById('notif-banner');
+const btnNotifAllow    = document.getElementById('btn-notif-allow');
+const btnNotifDismiss  = document.getElementById('btn-notif-dismiss');
+const iosInstallHint   = document.getElementById('ios-install-hint');
+const btnInstallDismiss = document.getElementById('btn-install-dismiss');
+
+/**
+ * Zeigt den passenden Hinweis an:
+ * - iOS + nicht installiert → Install-Hint ("Zum Home-Bildschirm hinzufügen")
+ * - Notifications supported + permission 'default' → Banner mit Erlauben-Button
+ */
+function initNotificationUI() {
+  // iOS aber App nicht als PWA installiert → Notifications funktionieren nicht
+  if (isIOS && !isStandalone) {
+    if (!localStorage.getItem('sm_install_hint_dismissed')) {
+      iosInstallHint.classList.remove('hidden');
+    }
+    return;
+  }
+
+  // Browser unterstützt keine Notifications
   if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    await Notification.requestPermission();
+
+  // Bereits erlaubt oder dauerhaft abgelehnt → kein Banner
+  if (Notification.permission !== 'default') return;
+
+  // Nutzer hat Banner bereits weggeklickt
+  if (localStorage.getItem('sm_notif_banner_dismissed')) return;
+
+  notifBanner.classList.remove('hidden');
+}
+
+/**
+ * Permission anfragen – MUSS durch User-Geste ausgelöst werden.
+ * iOS Safari blockiert Notification.requestPermission() bei Auto-Aufruf still.
+ */
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) {
+    showToast('Dein Browser unterstützt keine Benachrichtigungen.');
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  notifBanner.classList.add('hidden');
+
+  if (permission === 'granted') {
+    showToast('Erinnerungen aktiviert! ✅');
+    rescheduleAllReminders();
+  } else {
+    showToast('Benachrichtigungen wurden nicht erlaubt.');
   }
 }
 
+/**
+ * Erinnerung einplanen.
+ * WICHTIG: Auf iOS muss showNotification() über den Service Worker laufen –
+ * new Notification() funktioniert dort auch als installierte PWA NICHT.
+ */
 function scheduleReminder(entry) {
   if (!entry.reminder) return;
   const delay = entry.reminder - Date.now();
   if (delay <= 0) return;
   if (delay > 2_147_483_647) return; // setTimeout max ~24 Tage
 
-  setTimeout(() => {
-    if (Notification.permission === 'granted') {
-      new Notification('SecondMind – Erinnerung', {
-        body: entry.text.slice(0, 100),
-        icon: 'icons/icon-192.png',
-        tag: entry.id
-      });
+  setTimeout(async () => {
+    if (Notification.permission !== 'granted') return;
+
+    // Bevorzugt: Service Worker showNotification (funktioniert auf iOS + Android)
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification('SecondMind – Erinnerung', {
+          body: entry.text.slice(0, 100),
+          icon: 'icons/icon-192.png',
+          badge: 'icons/icon-192.png',
+          tag: entry.id,
+          renotify: true
+        });
+        return;
+      } catch (err) {
+        console.warn('SW showNotification fehlgeschlagen:', err);
+      }
     }
+
+    // Fallback: Direkte Notification API (Desktop-Browser)
+    new Notification('SecondMind – Erinnerung', {
+      body: entry.text.slice(0, 100),
+      icon: 'icons/icon-192.png',
+      tag: entry.id
+    });
   }, delay);
 }
 
@@ -262,6 +340,19 @@ btnNew.addEventListener('click', openNew);
 btnSave.addEventListener('click', saveEntry);
 btnCancel.addEventListener('click', closeModal);
 
+// Notification-Banner: Erlauben-Button löst User-Gesture-konform die Permission aus
+btnNotifAllow.addEventListener('click', requestNotificationPermission);
+btnNotifDismiss.addEventListener('click', () => {
+  notifBanner.classList.add('hidden');
+  localStorage.setItem('sm_notif_banner_dismissed', '1');
+});
+
+// iOS Install-Hint schließen
+btnInstallDismiss.addEventListener('click', () => {
+  iosInstallHint.classList.add('hidden');
+  localStorage.setItem('sm_install_hint_dismissed', '1');
+});
+
 // Modal schließen bei Klick auf Backdrop
 modal.addEventListener('click', e => {
   if (e.target === modal) closeModal();
@@ -285,6 +376,8 @@ filterBtns.forEach(btn => {
 // ============================================================
 // INIT
 // ============================================================
-requestNotificationPermission();
+// Notification-UI initialisieren (Banner oder iOS-Hint anzeigen wenn nötig)
+// NICHT automatisch Permission anfragen – das muss per User-Geste passieren!
+initNotificationUI();
 rescheduleAllReminders();
 renderDashboard();

@@ -6,6 +6,11 @@
   <meta name="theme-color" content="#6c63ff" />
   <meta name="description" content="SecondMind – dein digitales Zweitgehirn" />
   <link rel="manifest" href="manifest.json" />
+  <!-- iOS PWA: damit Safari die App als installierbare PWA erkennt -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SecondMind" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="style.css" />
   <title>SecondMind</title>
 </head>
@@ -16,6 +21,20 @@
     <h1>SecondMind</h1>
     <button id="btn-new" aria-label="Neuen Eintrag erstellen">+ Neu</button>
   </header>
+
+  <!-- BENACHRICHTIGUNGS-BANNER (erscheint nur wenn nötig) -->
+  <div id="notif-banner" class="notif-banner hidden" role="status">
+    <span>🔔 Erinnerungen aktivieren?</span>
+    <button id="btn-notif-allow">Erlauben</button>
+    <button id="btn-notif-dismiss" aria-label="Schließen">✕</button>
+  </div>
+
+  <!-- iOS INSTALL-HINWEIS (nur wenn App nicht installiert) -->
+  <div id="ios-install-hint" class="ios-install-hint hidden" role="status">
+    <p>📲 Für Erinnerungen: App zum Home-Bildschirm hinzufügen<br>
+       <strong>Teilen-Symbol → Zum Home-Bildschirm</strong></p>
+    <button id="btn-install-dismiss" aria-label="Schließen">✕</button>
+  </div>
 
   <!-- FILTER BAR -->
   <nav class="filter-bar" aria-label="Kategoriefilter">

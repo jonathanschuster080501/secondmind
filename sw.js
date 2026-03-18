@@ -32,6 +32,40 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+// --- Push: Benachrichtigung anzeigen (für zukünftigen Push-Server) ---
+self.addEventListener('push', event => {
+  const data = event.data
+    ? event.data.json()
+    : { title: 'SecondMind', body: 'Neue Erinnerung' };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'SecondMind – Erinnerung', {
+      body: data.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: data.tag || 'secondmind-push'
+    })
+  );
+});
+
+// --- Notification Click: App öffnen oder fokussieren ---
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then(clientList => {
+        // Offenes Fenster vorhanden? Fokussieren.
+        for (const client of clientList) {
+          if ('focus' in client) return client.focus();
+        }
+        // Sonst neues Fenster öffnen
+        return clients.openWindow('/');
+      })
+  );
+});
+
 // --- Fetch: Cache-first für App-Shell ---
 self.addEventListener('fetch', event => {
   // Nur GET-Requests behandeln
