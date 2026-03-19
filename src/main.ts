@@ -15,6 +15,7 @@ import {
 // ============================================================
 
 type Theme = 'midnight_void' | 'paper_light'
+type Layout = 'grid' | 'list' | 'kanban' | 'timeline'
 
 const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
   concept:    'Idee',
@@ -34,6 +35,7 @@ function typeToClass(type: EntryType): string {
 
 let entries: Entry[] = []
 let activeFilter: string = 'all'
+let activeLayout: Layout = 'grid'
 let editingId: string | null = null
 
 // ============================================================
@@ -54,6 +56,7 @@ const textEl            = document.getElementById('entry-text') as HTMLTextAreaE
 const reminderEl        = document.getElementById('entry-reminder') as HTMLInputElement
 const toast             = document.getElementById('toast')!
 const filterBtns        = document.querySelectorAll<HTMLElement>('.filter-btn')
+const layoutBtns        = document.querySelectorAll<HTMLElement>('.layout-btn')
 const notifBanner       = document.getElementById('notif-banner')!
 const btnNotifAllow     = document.getElementById('btn-notif-allow')!
 const btnNotifDismiss   = document.getElementById('btn-notif-dismiss')!
@@ -188,15 +191,22 @@ async function loadApp() {
 
     if (prefs) {
       applyTheme(prefs.theme)
+      applyLayout(prefs.layout as Layout)
     } else {
       const defaultTheme = systemTheme()
       await upsertPreferences({ theme: defaultTheme, layout: 'grid' })
       applyTheme(defaultTheme)
+      applyLayout('grid')
     }
 
     rescheduleAllReminders()
     renderDashboard()
     initNotificationUI()
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) {
+      setupRealtime(session.user.id)
+    }
   } catch (err) {
     showToast('Fehler beim Laden der Daten.')
     console.error(err)
@@ -218,15 +228,37 @@ function applyTheme(theme: Theme) {
   btnThemeToggle.textContent = theme === 'midnight_void' ? '☀️' : '🌙'
 }
 
+function applyLayout(layout: Layout) {
+  activeLayout = layout
+  dashboard.dataset.layout = layout
+  layoutBtns.forEach(b => {
+    b.classList.toggle('active', b.dataset.layout === layout)
+  })
+}
+
 btnThemeToggle.addEventListener('click', async () => {
   const current = (document.documentElement.dataset.theme ?? 'midnight_void') as Theme
   const next: Theme = current === 'midnight_void' ? 'paper_light' : 'midnight_void'
   applyTheme(next)
   try {
-    await upsertPreferences({ theme: next, layout: 'grid' })
+    await upsertPreferences({ theme: next, layout: activeLayout })
   } catch (err) {
     console.error('Theme speichern fehlgeschlagen:', err)
   }
+})
+
+layoutBtns.forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const layout = btn.dataset.layout as Layout
+    applyLayout(layout)
+    renderDashboard()
+    try {
+      const current = (document.documentElement.dataset.theme ?? 'midnight_void') as Theme
+      await upsertPreferences({ theme: current, layout })
+    } catch (err) {
+      console.error('Layout speichern fehlgeschlagen:', err)
+    }
+  })
 })
 
 // ============================================================
@@ -234,14 +266,114 @@ btnThemeToggle.addEventListener('click', async () => {
 // ============================================================
 
 function renderDashboard() {
-  document.querySelectorAll('.entry-card').forEach(el => el.remove())
+  document.querySelectorAll('.entry-card, .kanban-column, .timeline-group').forEach(el => el.remove())
 
   const filtered = activeFilter === 'all'
     ? entries
     : entries.filter(e => e.entry_type === activeFilter)
 
   emptyMsg.style.display = filtered.length === 0 ? 'block' : 'none'
-  filtered.forEach(entry => dashboard.appendChild(buildCard(entry)))
+
+  if (activeLayout === 'kanban') {
+    renderKanban(filtered)
+  } else if (activeLayout === 'timeline') {
+    renderTimeline(filtered)
+  } else {
+    filtered.forEach(entry => dashboard.appendChild(buildCard(entry)))
+  }
+}
+
+const KANBAN_COLUMNS: EntryType[] = ['concept', 'todo', 'quick_note', 'diary', 'bullets']
+
+function renderKanban(filtered: Entry[]) {
+  KANBAN_COLUMNS.forEach(type => {
+    const col = document.createElement('div')
+    col.className = 'kanban-column'
+
+    const header = document.createElement('div')
+    header.className = `kanban-header ${typeToClass(type)}`
+    header.textContent = ENTRY_TYPE_LABELS[type]
+    col.appendChild(header)
+
+    filtered
+      .filter(e => e.entry_type === type)
+      .forEach(e => col.appendChild(buildCard(e)))
+
+    dashboard.appendChild(col)
+  })
+}
+
+function renderTimeline(filtered: Entry[]) {
+  const groups = new Map<string, Entry[]>()
+  filtered.forEach(e => {
+    const day = new Date(e.created_at).toLocaleDateString('de-DE', {
+      weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+    })
+    if (!groups.has(day)) groups.set(day, [])
+    groups.get(day)!.push(e)
+  })
+
+  groups.forEach((dayEntries, day) => {
+    const group = document.createElement('div')
+    group.className = 'timeline-group'
+
+    const header = document.createElement('div')
+    header.className = 'timeline-date-header'
+    header.textContent = day
+    group.appendChild(header)
+
+    dayEntries.forEach((entry) => {
+      const item = document.createElement('div')
+      item.className = 'timeline-item'
+
+      const lineEl = document.createElement('div')
+      lineEl.className = 'timeline-line'
+      lineEl.innerHTML = `<div class="timeline-dot"></div><div class="timeline-connector"></div>`
+
+      item.appendChild(lineEl)
+      item.appendChild(buildCard(entry))
+      group.appendChild(item)
+    })
+
+    dashboard.appendChild(group)
+  })
+}
+
+function setupRealtime(userId: string) {
+  supabase
+    .channel('entries-realtime')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'entries', filter: `user_id=eq.${userId}` },
+      (payload) => {
+        if (payload.eventType === 'INSERT') {
+          if (!entries.find(e => e.id === (payload.new as Entry).id)) {
+            entries.unshift(payload.new as Entry)
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          entries = entries.map(e =>
+            e.id === (payload.new as Entry).id ? (payload.new as Entry) : e
+          )
+        } else if (payload.eventType === 'DELETE') {
+          entries = entries.filter(e => e.id !== (payload.old as { id: string }).id)
+        }
+        renderDashboard()
+      }
+    )
+    .subscribe()
+
+  supabase
+    .channel('prefs-realtime')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'user_preferences', filter: `user_id=eq.${userId}` },
+      (payload) => {
+        applyTheme(payload.new['theme'] as Theme)
+        applyLayout(payload.new['layout'] as Layout)
+        renderDashboard()
+      }
+    )
+    .subscribe()
 }
 
 function buildCard(entry: Entry): HTMLElement {

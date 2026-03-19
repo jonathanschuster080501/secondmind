@@ -43,12 +43,20 @@
 
   <!-- FILTER BAR -->
   <nav class="filter-bar" aria-label="Kategoriefilter">
-    <button class="filter-btn active" data-filter="all">Alle</button>
-    <button class="filter-btn" data-filter="concept">Idee</button>
-    <button class="filter-btn" data-filter="todo">To-Do</button>
-    <button class="filter-btn" data-filter="quick_note">Gedanke</button>
-    <button class="filter-btn" data-filter="diary">Gefühl</button>
-    <button class="filter-btn" data-filter="bullets">Tagebuch</button>
+    <div class="filter-bar-filters">
+      <button class="filter-btn active" data-filter="all">Alle</button>
+      <button class="filter-btn" data-filter="concept">Idee</button>
+      <button class="filter-btn" data-filter="todo">To-Do</button>
+      <button class="filter-btn" data-filter="quick_note">Gedanke</button>
+      <button class="filter-btn" data-filter="diary">Gefühl</button>
+      <button class="filter-btn" data-filter="bullets">Tagebuch</button>
+    </div>
+    <div class="layout-switcher">
+      <button class="layout-btn active" data-layout="grid" title="Grid" aria-label="Grid-Ansicht">⊞</button>
+      <button class="layout-btn" data-layout="list" title="Liste" aria-label="Listen-Ansicht">≡</button>
+      <button class="layout-btn" data-layout="kanban" title="Kanban" aria-label="Kanban-Ansicht">⋮⋮</button>
+      <button class="layout-btn" data-layout="timeline" title="Timeline" aria-label="Timeline-Ansicht">↕</button>
+    </div>
   </nav>
 
   <!-- DASHBOARD -->
