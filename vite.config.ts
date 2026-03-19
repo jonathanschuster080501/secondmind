@@ -5,6 +5,6 @@ export default defineConfig({
   // in public/ liegen (oder via vite-plugin-pwa gehandelt werden).
   // Im Dev-Server (`vite dev`) werden alle Root-Dateien direkt ausgeliefert.
   server: {
-    hmr: false,
+    hmr: true,
   },
 })
