@@ -47,6 +47,7 @@ const btnNew          = document.getElementById('btn-new')!
 const btnSave         = document.getElementById('btn-save')!
 const btnCancel       = document.getElementById('btn-cancel')!
 const btnLogout       = document.getElementById('btn-logout')!
+const btnThemeToggle  = document.getElementById('btn-theme-toggle')!
 const categoryEl      = document.getElementById('entry-category') as HTMLSelectElement
 const textEl          = document.getElementById('entry-text') as HTMLTextAreaElement
 const reminderEl      = document.getElementById('entry-reminder') as HTMLInputElement
@@ -175,8 +176,9 @@ async function loadApp() {
     if (prefs) {
       applyPreferences(prefs.theme, prefs.layout)
     } else {
-      await upsertPreferences({ theme: 'midnight_void', layout: 'grid' })
-      applyPreferences('midnight_void', 'grid')
+      const defaultTheme = systemTheme()
+      await upsertPreferences({ theme: defaultTheme, layout: 'grid' })
+      applyPreferences(defaultTheme, 'grid')
     }
 
     rescheduleAllReminders()
@@ -188,13 +190,38 @@ async function loadApp() {
   }
 }
 
+type Theme = 'midnight_void' | 'paper_light'
+
+function applyTheme(theme: Theme) {
+  document.documentElement.dataset.theme = theme
+  btnThemeToggle.textContent = theme === 'midnight_void' ? '☀️' : '🌙'
+}
+
 function applyPreferences(
-  theme: 'midnight_void' | 'paper_light',
+  theme: Theme,
   layout: 'grid' | 'list' | 'kanban' | 'timeline'
 ) {
-  document.body.dataset.theme = theme
-  dashboard.dataset.layout   = layout
+  applyTheme(theme)
+  dashboard.dataset.layout = layout
 }
+
+function systemTheme(): Theme {
+  return window.matchMedia('(prefers-color-scheme: light)').matches
+    ? 'paper_light'
+    : 'midnight_void'
+}
+
+// Theme-Toggle
+btnThemeToggle.addEventListener('click', async () => {
+  const current = (document.documentElement.dataset.theme ?? 'midnight_void') as Theme
+  const next: Theme = current === 'midnight_void' ? 'paper_light' : 'midnight_void'
+  applyTheme(next)
+  try {
+    await upsertPreferences({ theme: next, layout: 'grid' })
+  } catch (err) {
+    console.error('Theme speichern fehlgeschlagen:', err)
+  }
+})
 
 // ============================================================
 // DASHBOARD RENDERN
