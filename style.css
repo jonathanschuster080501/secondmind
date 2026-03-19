@@ -350,7 +350,7 @@ body {
 .ios-install-hint.hidden { display: none; }
 
 /* === APP SHELL AUTH GATE === */
-.app-shell-hidden { visibility: hidden; }
+.app-shell-hidden { display: none; }
 
 /* === LOGOUT-BUTTON (im Header) === */
 .btn-logout {

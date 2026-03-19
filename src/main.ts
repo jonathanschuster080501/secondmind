@@ -75,6 +75,7 @@ const btnInstallDismiss = document.getElementById('btn-install-dismiss')!
 
 function showAuthOverlay() {
   authOverlay.classList.remove('hidden')
+  appShell.classList.add('app-shell-hidden')
   // Formular zurücksetzen (falls vorher Success-State gezeigt)
   authForm.classList.remove('hidden')
   authSuccessMsg.classList.add('hidden')
@@ -86,6 +87,7 @@ function showAuthOverlay() {
 
 function hideAuthOverlay() {
   authOverlay.classList.add('hidden')
+  appShell.classList.remove('app-shell-hidden')
   btnNew.removeAttribute('disabled')
   btnLogout.classList.remove('hidden')
 }
