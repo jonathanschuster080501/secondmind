@@ -273,6 +273,7 @@ function closeModal() {
 // ============================================================
 
 async function saveEntry() {
+  console.log('Speichern clicked')
   const content = textEl.value.trim()
   if (!content) {
     showToast('Bitte gib etwas ein.')
@@ -289,12 +290,18 @@ async function saveEntry() {
 
   try {
     if (editingId) {
-      const updated = await updateEntry(editingId, { content, entry_type, remind_at })
+      const data = { content, entry_type, remind_at }
+      console.log('Updating entry:', data)
+      const updated = await updateEntry(editingId, data)
+      console.log('Update result:', updated)
       entries = entries.map(e => e.id === editingId ? updated : e)
       scheduleReminder(updated)
       showToast('Eintrag aktualisiert.')
     } else {
-      const created = await createEntry({ content, entry_type, remind_at })
+      const data = { content, entry_type, remind_at }
+      console.log('Creating entry:', data)
+      const created = await createEntry(data)
+      console.log('Insert result:', created)
       entries.unshift(created)
       scheduleReminder(created)
       showToast('Eintrag gespeichert.')
@@ -304,7 +311,7 @@ async function saveEntry() {
     closeModal()
   } catch (err) {
     showToast('Speichern fehlgeschlagen.')
-    console.error(err)
+    console.error('saveEntry error:', err)
   } finally {
     btnSave.removeAttribute('disabled')
   }
