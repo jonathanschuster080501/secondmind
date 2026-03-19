@@ -128,17 +128,30 @@ btnLogout.addEventListener('click', async () => {
   renderDashboard()
 })
 
-// Auth-State-Listener: INITIAL_SESSION = erster Check beim Laden (Supabase v2)
+// Auth-State-Listener
+// INITIAL_SESSION: erster Check beim Laden — immer auswerten
+// SIGNED_IN: nur auswerten wenn noch keine Einträge geladen (verhindert doppeltes loadApp())
+let appLoaded = false
 supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth event:', event, session)
-  if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+  if (event === 'INITIAL_SESSION') {
     if (session) {
       hideAuthOverlay()
+      appLoaded = true
       await loadApp()
     } else {
       showAuthOverlay()
     }
+  } else if (event === 'SIGNED_IN') {
+    if (session && !appLoaded) {
+      hideAuthOverlay()
+      appLoaded = true
+      await loadApp()
+    } else if (session) {
+      hideAuthOverlay()
+    }
   } else if (event === 'SIGNED_OUT') {
+    appLoaded = false
     entries = []
     renderDashboard()
     showAuthOverlay()

@@ -97,7 +97,8 @@ export async function fetchPreferences(): Promise<UserPreferences | null> {
 export async function upsertPreferences(
   prefs: Pick<UserPreferences, 'theme' | 'layout'>
 ): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user
   if (!user) throw new Error('Nicht angemeldet')
 
   const { error } = await supabase
