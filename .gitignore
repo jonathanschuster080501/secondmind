@@ -1,3 +1,7 @@
+# Dependencies
+node_modules/
+dist/
+
 # Betriebssystem
 .DS_Store
 Thumbs.db
