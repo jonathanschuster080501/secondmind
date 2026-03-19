@@ -1,18 +1,23 @@
 // ============================================================
 // SecondMind – main.ts
-// Datenspeicher: Supabase (migriert von localStorage)
+// Datenspeicher: localStorage
 // ============================================================
 
-import { supabase } from './lib/supabase'
-import {
-  fetchEntries, createEntry, updateEntry, deleteEntry,
-  fetchPreferences, upsertPreferences,
-  type Entry, type EntryType
-} from './lib/db'
+// ============================================================
+// TYPEN & KONSTANTEN
+// ============================================================
 
-// ============================================================
-// MAPPING: entry_type ↔ Anzeigename / CSS-Klasse
-// ============================================================
+type EntryType = 'quick_note' | 'todo' | 'concept' | 'diary' | 'bullets'
+type Theme = 'midnight_void' | 'paper_light'
+
+interface Entry {
+  id: string
+  content: string
+  entry_type: EntryType
+  remind_at: string | null
+  created_at: string
+  updated_at: string
+}
 
 const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
   concept:    'Idee',
@@ -22,7 +27,6 @@ const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
   bullets:    'Tagebuch',
 }
 
-// Ersetzt Unterstrich durch Bindestrich → CSS-konvention
 function typeToClass(type: EntryType): string {
   return `tag-${type.replace('_', '-')}`
 }
@@ -36,191 +40,71 @@ let activeFilter: string = 'all'
 let editingId: string | null = null
 
 // ============================================================
+// LOCALSTORAGE
+// ============================================================
+
+const LS_ENTRIES = 'sm_entries'
+const LS_THEME   = 'sm_theme'
+
+function loadEntries(): Entry[] {
+  try {
+    return JSON.parse(localStorage.getItem(LS_ENTRIES) ?? '[]')
+  } catch { return [] }
+}
+
+function saveEntries() {
+  localStorage.setItem(LS_ENTRIES, JSON.stringify(entries))
+}
+
+function loadTheme(): Theme {
+  const saved = localStorage.getItem(LS_THEME) as Theme | null
+  if (saved) return saved
+  return window.matchMedia('(prefers-color-scheme: light)').matches
+    ? 'paper_light'
+    : 'midnight_void'
+}
+
+function saveTheme(theme: Theme) {
+  localStorage.setItem(LS_THEME, theme)
+}
+
+// ============================================================
 // DOM-REFERENZEN
 // ============================================================
 
-const dashboard       = document.getElementById('dashboard')!
-const emptyMsg        = document.getElementById('empty-msg')!
-const modal           = document.getElementById('modal')!
-const modalTitle      = document.getElementById('modal-title')!
-const btnNew          = document.getElementById('btn-new')!
-const btnSave         = document.getElementById('btn-save')!
-const btnCancel       = document.getElementById('btn-cancel')!
-const btnLogout       = document.getElementById('btn-logout')!
-const btnThemeToggle  = document.getElementById('btn-theme-toggle')!
-const categoryEl      = document.getElementById('entry-category') as HTMLSelectElement
-const textEl          = document.getElementById('entry-text') as HTMLTextAreaElement
-const reminderEl      = document.getElementById('entry-reminder') as HTMLInputElement
-const toast           = document.getElementById('toast')!
-const filterBtns      = document.querySelectorAll<HTMLElement>('.filter-btn')
-
-// Auth-Overlay
-const appShell        = document.getElementById('app-shell')!
-const authOverlay     = document.getElementById('auth-overlay')!
-const authForm        = document.getElementById('auth-form')!
-const authSuccessMsg  = document.getElementById('auth-success')!
-const authEmailEl     = document.getElementById('auth-email') as HTMLInputElement
-const btnMagicLink    = document.getElementById('btn-magic-link')!
-const authError       = document.getElementById('auth-error')!
-
-// Notification-Banner
-const notifBanner     = document.getElementById('notif-banner')!
-const btnNotifAllow   = document.getElementById('btn-notif-allow')!
-const btnNotifDismiss = document.getElementById('btn-notif-dismiss')!
-const iosInstallHint  = document.getElementById('ios-install-hint')!
+const dashboard         = document.getElementById('dashboard')!
+const emptyMsg          = document.getElementById('empty-msg')!
+const modal             = document.getElementById('modal')!
+const modalTitle        = document.getElementById('modal-title')!
+const btnNew            = document.getElementById('btn-new')!
+const btnSave           = document.getElementById('btn-save')!
+const btnCancel         = document.getElementById('btn-cancel')!
+const btnThemeToggle    = document.getElementById('btn-theme-toggle')!
+const categoryEl        = document.getElementById('entry-category') as HTMLSelectElement
+const textEl            = document.getElementById('entry-text') as HTMLTextAreaElement
+const reminderEl        = document.getElementById('entry-reminder') as HTMLInputElement
+const toast             = document.getElementById('toast')!
+const filterBtns        = document.querySelectorAll<HTMLElement>('.filter-btn')
+const notifBanner       = document.getElementById('notif-banner')!
+const btnNotifAllow     = document.getElementById('btn-notif-allow')!
+const btnNotifDismiss   = document.getElementById('btn-notif-dismiss')!
+const iosInstallHint    = document.getElementById('ios-install-hint')!
 const btnInstallDismiss = document.getElementById('btn-install-dismiss')!
 
 // ============================================================
-// AUTH
+// THEME
 // ============================================================
-
-function showAuthOverlay() {
-  authOverlay.classList.remove('hidden')
-  appShell.classList.add('app-shell-hidden')
-  // Formular zurücksetzen (falls vorher Success-State gezeigt)
-  authForm.classList.remove('hidden')
-  authSuccessMsg.classList.add('hidden')
-  authEmailEl.value = ''
-  clearAuthError()
-  btnNew.setAttribute('disabled', '')
-  btnLogout.classList.add('hidden')
-}
-
-function hideAuthOverlay() {
-  authOverlay.classList.add('hidden')
-  appShell.classList.remove('app-shell-hidden')
-  btnNew.removeAttribute('disabled')
-  btnLogout.classList.remove('hidden')
-}
-
-function showAuthError(msg: string) {
-  authError.textContent = msg
-  authError.classList.remove('hidden')
-}
-
-function clearAuthError() {
-  authError.classList.add('hidden')
-  authError.textContent = ''
-}
-
-btnMagicLink.addEventListener('click', async () => {
-  clearAuthError()
-  const email = authEmailEl.value.trim()
-  if (!email) { showAuthError('Bitte E-Mail eingeben.'); return }
-
-  console.log('Magic Link request for:', email)
-  btnMagicLink.setAttribute('disabled', '')
-  const { data, error } = await supabase.auth.signInWithOtp({ email })
-  btnMagicLink.removeAttribute('disabled')
-
-  console.log('Magic Link response:', data, error)
-  if (error) {
-    console.error('Auth error:', error)
-    showAuthError(error.message)
-  } else {
-    authForm.classList.add('hidden')
-    authSuccessMsg.classList.remove('hidden')
-  }
-})
-
-btnLogout.addEventListener('click', async () => {
-  await supabase.auth.signOut()
-  entries = []
-  renderDashboard()
-})
-
-// Auth-State-Listener
-// INITIAL_SESSION: erster Check beim Laden — immer auswerten
-// SIGNED_IN: nur auswerten wenn noch keine Einträge geladen (verhindert doppeltes loadApp())
-let appLoaded = false
-supabase.auth.onAuthStateChange(async (event, session) => {
-  console.log('Auth event:', event, session)
-  if (event === 'INITIAL_SESSION') {
-    if (session) {
-      hideAuthOverlay()
-      appLoaded = true
-      await loadApp()
-    } else {
-      showAuthOverlay()
-    }
-  } else if (event === 'SIGNED_IN') {
-    if (session && !appLoaded) {
-      hideAuthOverlay()
-      appLoaded = true
-      await loadApp()
-    } else if (session) {
-      hideAuthOverlay()
-    }
-  } else if (event === 'SIGNED_OUT') {
-    appLoaded = false
-    entries = []
-    renderDashboard()
-    showAuthOverlay()
-  }
-})
-
-// ============================================================
-// APP INITIALISIEREN (nach Auth)
-// ============================================================
-
-async function loadApp() {
-  try {
-    const [fetchedEntries, prefs] = await Promise.all([
-      fetchEntries(),
-      fetchPreferences(),
-    ])
-
-    entries = fetchedEntries
-
-    // Preferences anwenden (oder Defaults in DB anlegen)
-    if (prefs) {
-      applyPreferences(prefs.theme, prefs.layout)
-    } else {
-      const defaultTheme = systemTheme()
-      await upsertPreferences({ theme: defaultTheme, layout: 'grid' })
-      applyPreferences(defaultTheme, 'grid')
-    }
-
-    rescheduleAllReminders()
-    renderDashboard()
-    initNotificationUI()
-  } catch (err) {
-    showToast('Fehler beim Laden der Daten.')
-    console.error(err)
-  }
-}
-
-type Theme = 'midnight_void' | 'paper_light'
 
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme
   btnThemeToggle.textContent = theme === 'midnight_void' ? '☀️' : '🌙'
 }
 
-function applyPreferences(
-  theme: Theme,
-  layout: 'grid' | 'list' | 'kanban' | 'timeline'
-) {
-  applyTheme(theme)
-  dashboard.dataset.layout = layout
-}
-
-function systemTheme(): Theme {
-  return window.matchMedia('(prefers-color-scheme: light)').matches
-    ? 'paper_light'
-    : 'midnight_void'
-}
-
-// Theme-Toggle
-btnThemeToggle.addEventListener('click', async () => {
+btnThemeToggle.addEventListener('click', () => {
   const current = (document.documentElement.dataset.theme ?? 'midnight_void') as Theme
   const next: Theme = current === 'midnight_void' ? 'paper_light' : 'midnight_void'
   applyTheme(next)
-  try {
-    await upsertPreferences({ theme: next, layout: 'grid' })
-  } catch (err) {
-    console.error('Theme speichern fehlgeschlagen:', err)
-  }
+  saveTheme(next)
 })
 
 // ============================================================
@@ -235,8 +119,6 @@ function renderDashboard() {
     : entries.filter(e => e.entry_type === activeFilter)
 
   emptyMsg.style.display = filtered.length === 0 ? 'block' : 'none'
-
-  // Bereits nach created_at desc aus DB → direkt rendern
   filtered.forEach(entry => dashboard.appendChild(buildCard(entry)))
 }
 
@@ -280,9 +162,9 @@ function buildCard(entry: Entry): HTMLElement {
 function openNew() {
   editingId = null
   modalTitle.textContent = 'Neuer Eintrag'
-  categoryEl.value  = 'concept'
-  textEl.value      = ''
-  reminderEl.value  = ''
+  categoryEl.value = 'concept'
+  textEl.value     = ''
+  reminderEl.value = ''
   showModal()
 }
 
@@ -291,9 +173,9 @@ function openEdit(id: string) {
   if (!entry) return
   editingId = id
   modalTitle.textContent = 'Eintrag bearbeiten'
-  categoryEl.value  = entry.entry_type
-  textEl.value      = entry.content
-  reminderEl.value  = entry.remind_at
+  categoryEl.value = entry.entry_type
+  textEl.value     = entry.content
+  reminderEl.value = entry.remind_at
     ? new Date(entry.remind_at).toISOString().slice(0, 16)
     : ''
   showModal()
@@ -312,8 +194,7 @@ function closeModal() {
 // EINTRAG SPEICHERN
 // ============================================================
 
-async function saveEntry() {
-  console.log('Speichern clicked')
+function saveEntry() {
   const content = textEl.value.trim()
   if (!content) {
     showToast('Bitte gib etwas ein.')
@@ -325,53 +206,79 @@ async function saveEntry() {
   const remind_at  = reminderEl.value
     ? new Date(reminderEl.value).toISOString()
     : null
+  const now = new Date().toISOString()
 
-  btnSave.setAttribute('disabled', '')
-
-  try {
-    if (editingId) {
-      const data = { content, entry_type, remind_at }
-      console.log('Updating entry:', data)
-      const updated = await updateEntry(editingId, data)
-      console.log('Update result:', updated)
-      entries = entries.map(e => e.id === editingId ? updated : e)
-      scheduleReminder(updated)
-      showToast('Eintrag aktualisiert.')
-    } else {
-      const data = { content, entry_type, remind_at }
-      console.log('Creating entry:', data)
-      const created = await createEntry(data)
-      console.log('Insert result:', created)
-      entries.unshift(created)
-      scheduleReminder(created)
-      showToast('Eintrag gespeichert.')
+  if (editingId) {
+    entries = entries.map(e => e.id === editingId
+      ? { ...e, content, entry_type, remind_at, updated_at: now }
+      : e
+    )
+    const updated = entries.find(e => e.id === editingId)!
+    scheduleReminder(updated)
+    showToast('Eintrag aktualisiert.')
+  } else {
+    const created: Entry = {
+      id:         crypto.randomUUID(),
+      content,
+      entry_type,
+      remind_at,
+      created_at: now,
+      updated_at: now,
     }
-
-    renderDashboard()
-    closeModal()
-  } catch (err) {
-    showToast('Speichern fehlgeschlagen.')
-    console.error('saveEntry error:', err)
-  } finally {
-    btnSave.removeAttribute('disabled')
+    entries.unshift(created)
+    scheduleReminder(created)
+    showToast('Eintrag gespeichert.')
   }
+
+  saveEntries()
+  renderDashboard()
+  closeModal()
 }
 
 // ============================================================
 // EINTRAG LÖSCHEN
 // ============================================================
 
-async function handleDelete(id: string) {
-  try {
-    await deleteEntry(id)
-    entries = entries.filter(e => e.id !== id)
-    renderDashboard()
-    showToast('Eintrag gelöscht.')
-  } catch (err) {
-    showToast('Löschen fehlgeschlagen.')
-    console.error(err)
-  }
+function handleDelete(id: string) {
+  entries = entries.filter(e => e.id !== id)
+  saveEntries()
+  renderDashboard()
+  showToast('Eintrag gelöscht.')
 }
+
+// ============================================================
+// FILTER
+// ============================================================
+
+filterBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    filterBtns.forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+    activeFilter = btn.dataset.filter ?? 'all'
+    renderDashboard()
+  })
+})
+
+// ============================================================
+// EVENT LISTENER
+// ============================================================
+
+btnNew.addEventListener('click', openNew)
+btnSave.addEventListener('click', saveEntry)
+btnCancel.addEventListener('click', closeModal)
+
+btnNotifAllow.addEventListener('click', requestNotificationPermission)
+btnNotifDismiss.addEventListener('click', () => {
+  notifBanner.classList.add('hidden')
+  localStorage.setItem('sm_notif_banner_dismissed', '1')
+})
+btnInstallDismiss.addEventListener('click', () => {
+  iosInstallHint.classList.add('hidden')
+  localStorage.setItem('sm_install_hint_dismissed', '1')
+})
+
+modal.addEventListener('click', e => { if (e.target === modal) closeModal() })
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal() })
 
 // ============================================================
 // IOS & STANDALONE DETECTION
@@ -422,27 +329,10 @@ function scheduleReminder(entry: Entry) {
   if (!entry.remind_at) return
   const delay = new Date(entry.remind_at).getTime() - Date.now()
   if (delay <= 0) return
-  if (delay > 2_147_483_647) return  // setTimeout-Maximum ~24 Tage
+  if (delay > 2_147_483_647) return
 
-  setTimeout(async () => {
+  setTimeout(() => {
     if (Notification.permission !== 'granted') return
-
-    if ('serviceWorker' in navigator) {
-      try {
-        const reg = await navigator.serviceWorker.ready
-        await reg.showNotification('SecondMind – Erinnerung', {
-          body: entry.content.slice(0, 100),
-          icon: 'icons/icon-192.png',
-          badge: 'icons/icon-192.png',
-          tag: entry.id,
-          renotify: true
-        })
-        return
-      } catch (err) {
-        console.warn('SW showNotification fehlgeschlagen:', err)
-      }
-    }
-
     new Notification('SecondMind – Erinnerung', {
       body: entry.content.slice(0, 100),
       icon: 'icons/icon-192.png',
@@ -461,37 +351,12 @@ function rescheduleAllReminders() {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
-    // Alte Service Worker deregistrieren (z.B. secondmind-v1 mit gecachtem app.js)
     const registrations = await navigator.serviceWorker.getRegistrations()
     for (const reg of registrations) {
       await reg.unregister()
-      console.log('Alter SW entfernt:', reg.scope)
     }
-    // Neuen SW registrieren
-    navigator.serviceWorker.register('/sw.js').catch(err => {
-      console.warn('SW-Registrierung fehlgeschlagen:', err)
-    })
   })
 }
-
-console.log('App init, checking session...')
-
-// URL-Hash auf Supabase-Fehler prüfen (z.B. abgelaufener Magic Link)
-;(function checkHashError() {
-  const hash = new URLSearchParams(window.location.hash.slice(1))
-  const error = hash.get('error')
-  const desc  = hash.get('error_description')
-  if (error) {
-    const msg = desc
-      ? decodeURIComponent(desc.replace(/\+/g, ' '))
-      : error
-    // Auth-Overlay zeigen und Fehlermeldung einblenden
-    showAuthOverlay()
-    showAuthError(msg)
-    // Hash aus URL entfernen
-    history.replaceState(null, '', window.location.pathname)
-  }
-})()
 
 // ============================================================
 // TOAST
@@ -519,35 +384,11 @@ function escapeHtml(str: string): string {
 }
 
 // ============================================================
-// EVENT LISTENER
+// APP START
 // ============================================================
 
-btnNew.addEventListener('click', openNew)
-btnSave.addEventListener('click', saveEntry)
-btnCancel.addEventListener('click', closeModal)
-
-btnNotifAllow.addEventListener('click', requestNotificationPermission)
-btnNotifDismiss.addEventListener('click', () => {
-  notifBanner.classList.add('hidden')
-  localStorage.setItem('sm_notif_banner_dismissed', '1')
-})
-
-btnInstallDismiss.addEventListener('click', () => {
-  iosInstallHint.classList.add('hidden')
-  localStorage.setItem('sm_install_hint_dismissed', '1')
-})
-
-modal.addEventListener('click', e => { if (e.target === modal) closeModal() })
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal() })
-
-filterBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    filterBtns.forEach(b => b.classList.remove('active'))
-    btn.classList.add('active')
-    activeFilter = btn.dataset.filter ?? 'all'
-    renderDashboard()
-  })
-})
-
-// Auth-State wird ausschließlich über onAuthStateChange (oben) verwaltet.
-// Supabase v2 feuert INITIAL_SESSION beim ersten Laden – kein manueller getSession()-Aufruf nötig.
+applyTheme(loadTheme())
+entries = loadEntries()
+rescheduleAllReminders()
+renderDashboard()
+initNotificationUI()
