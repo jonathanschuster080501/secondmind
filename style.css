@@ -10,11 +10,11 @@
   --text-muted: #6b7280;
   --radius: 12px;
   --shadow: 0 2px 12px rgba(0,0,0,0.08);
-  --tag-idee: #dbeafe;
-  --tag-todo: #dcfce7;
-  --tag-gedanke: #fef9c3;
-  --tag-gefühl: #fce7f3;
-  --tag-tagebuch: #ede9fe;
+  --tag-concept:    #dbeafe;
+  --tag-todo:       #dcfce7;
+  --tag-quick-note: #fef9c3;
+  --tag-diary:      #fce7f3;
+  --tag-bullets:    #ede9fe;
 }
 
 body {
@@ -136,11 +136,11 @@ body {
   padding: 0.2rem 0.6rem;
   border-radius: 20px;
 }
-.tag-idee     { background: var(--tag-idee);    color: #1d4ed8; }
-.tag-todo     { background: var(--tag-todo);    color: #15803d; }
-.tag-gedanke  { background: var(--tag-gedanke); color: #854d0e; }
-.tag-gefühl   { background: var(--tag-gefühl);  color: #9d174d; }
-.tag-tagebuch { background: var(--tag-tagebuch);color: #5b21b6; }
+.tag-concept    { background: var(--tag-concept);    color: #1d4ed8; }
+.tag-todo       { background: var(--tag-todo);       color: #15803d; }
+.tag-quick-note { background: var(--tag-quick-note); color: #854d0e; }
+.tag-diary      { background: var(--tag-diary);      color: #9d174d; }
+.tag-bullets    { background: var(--tag-bullets);    color: #5b21b6; }
 
 .card-date {
   font-size: 0.75rem;
@@ -348,6 +348,107 @@ body {
 
 .notif-banner.hidden,
 .ios-install-hint.hidden { display: none; }
+
+/* === APP SHELL AUTH GATE === */
+.app-shell-hidden { visibility: hidden; }
+
+/* === LOGOUT-BUTTON (im Header) === */
+.btn-logout {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-logout:hover { background: rgba(255,255,255,0.35); }
+.btn-logout.hidden { display: none; }
+
+/* === AUTH OVERLAY === */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+.auth-overlay.hidden { display: none; }
+
+.auth-box {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 2rem 1.5rem;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.auth-box h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+}
+
+.auth-subtitle {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.auth-box input {
+  width: 100%;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+.auth-box input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.auth-box .btn-primary {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.auth-error {
+  font-size: 0.82rem;
+  color: #ef4444;
+  text-align: center;
+}
+.auth-error.hidden { display: none; }
+
+.auth-success {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  padding: 0.5rem 0;
+}
+.auth-success.hidden { display: none; }
+
+#auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+#auth-form.hidden { display: none; }
 
 /* === DESKTOP TWEAKS === */
 @media (min-width: 640px) {

@@ -16,10 +16,14 @@
 </head>
 <body>
 
+  <!-- APP SHELL – wird per JS eingeblendet sobald Auth bestätigt -->
+  <div id="app-shell" class="app-shell-hidden">
+
   <!-- HEADER -->
   <header class="app-header">
     <h1>SecondMind</h1>
     <button id="btn-new" aria-label="Neuen Eintrag erstellen">+ Neu</button>
+    <button id="btn-logout" class="btn-logout hidden" aria-label="Abmelden">Abmelden</button>
   </header>
 
   <!-- BENACHRICHTIGUNGS-BANNER (erscheint nur wenn nötig) -->
@@ -39,11 +43,11 @@
   <!-- FILTER BAR -->
   <nav class="filter-bar" aria-label="Kategoriefilter">
     <button class="filter-btn active" data-filter="all">Alle</button>
-    <button class="filter-btn" data-filter="idee">Idee</button>
+    <button class="filter-btn" data-filter="concept">Idee</button>
     <button class="filter-btn" data-filter="todo">To-Do</button>
-    <button class="filter-btn" data-filter="gedanke">Gedanke</button>
-    <button class="filter-btn" data-filter="gefühl">Gefühl</button>
-    <button class="filter-btn" data-filter="tagebuch">Tagebuch</button>
+    <button class="filter-btn" data-filter="quick_note">Gedanke</button>
+    <button class="filter-btn" data-filter="diary">Gefühl</button>
+    <button class="filter-btn" data-filter="bullets">Tagebuch</button>
   </nav>
 
   <!-- DASHBOARD -->
@@ -58,11 +62,11 @@
 
       <label for="entry-category">Kategorie</label>
       <select id="entry-category">
-        <option value="idee">Idee</option>
+        <option value="concept">Idee</option>
         <option value="todo">To-Do</option>
-        <option value="gedanke">Gedanke</option>
-        <option value="gefühl">Gefühl</option>
-        <option value="tagebuch">Tagebuch</option>
+        <option value="quick_note">Gedanke</option>
+        <option value="diary">Gefühl</option>
+        <option value="bullets">Tagebuch</option>
       </select>
 
       <label for="entry-text">Inhalt</label>
@@ -81,6 +85,24 @@
   <!-- TOAST -->
   <div id="toast" class="toast hidden" role="alert" aria-live="polite"></div>
 
-  <script src="app.js"></script>
+  </div><!-- /app-shell -->
+
+  <!-- AUTH OVERLAY – startet sichtbar, wird nach Auth-Check versteckt -->
+  <div id="auth-overlay" class="auth-overlay" role="dialog" aria-modal="true" aria-label="Anmeldung">
+    <div class="auth-box">
+      <h2>SecondMind</h2>
+      <div id="auth-form">
+        <p class="auth-subtitle">Gib deine E-Mail ein – wir schicken dir einen Magic Link.</p>
+        <input type="email" id="auth-email" placeholder="E-Mail" autocomplete="email" />
+        <button id="btn-magic-link" class="btn-primary">Magic Link senden</button>
+        <p id="auth-error" class="auth-error hidden"></p>
+      </div>
+      <div id="auth-success" class="auth-success hidden">
+        <p>Schau in dein Postfach – wir haben dir einen Anmeldelink geschickt.</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

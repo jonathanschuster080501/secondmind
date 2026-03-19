@@ -3,13 +3,13 @@
 // Strategie: Cache-first für App-Shell, Network-first für alles andere
 // ============================================================
 
-const CACHE_NAME = 'secondmind-v1';
+const CACHE_NAME = 'secondmind-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/app.js',
   '/style.css',
   '/manifest.json'
+  // JS wird von Vite gebündelt und dynamisch gecacht (kein statischer Pfad)
 ];
 
 // --- Install: App-Shell in Cache legen ---
