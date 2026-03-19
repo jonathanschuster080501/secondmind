@@ -476,6 +476,23 @@ if ('serviceWorker' in navigator) {
 
 console.log('App init, checking session...')
 
+// URL-Hash auf Supabase-Fehler prüfen (z.B. abgelaufener Magic Link)
+;(function checkHashError() {
+  const hash = new URLSearchParams(window.location.hash.slice(1))
+  const error = hash.get('error')
+  const desc  = hash.get('error_description')
+  if (error) {
+    const msg = desc
+      ? decodeURIComponent(desc.replace(/\+/g, ' '))
+      : error
+    // Auth-Overlay zeigen und Fehlermeldung einblenden
+    showAuthOverlay()
+    showAuthError(msg)
+    // Hash aus URL entfernen
+    history.replaceState(null, '', window.location.pathname)
+  }
+})()
+
 // ============================================================
 // TOAST
 // ============================================================
