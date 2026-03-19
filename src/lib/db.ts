@@ -46,9 +46,12 @@ export async function fetchEntries(): Promise<Entry[]> {
 export async function createEntry(
   payload: Pick<Entry, 'content' | 'entry_type' | 'remind_at'>
 ): Promise<Entry> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) throw new Error('Nicht angemeldet')
+
   const { data, error } = await supabase
     .from('entries')
-    .insert({ ...payload, title: '', source: 'pwa' })
+    .insert({ ...payload, user_id: session.user.id, title: '', source: 'pwa' })
     .select()
     .single()
 
